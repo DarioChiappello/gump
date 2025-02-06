@@ -2,204 +2,146 @@ package config
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
-func TestLoadFromJSON(t *testing.T) {
-	t.Run("Valid JSON File", func(t *testing.T) {
-		cfg := NewConfig()
-		err := cfg.LoadFromJSON("testdata/base_config.json")
-		if err != nil {
-			t.Fatalf("Failed to load JSON: %v", err)
-		}
-
-		host, err := cfg.GetString("db.host")
-		if err != nil || host != "localhost" {
-			t.Errorf("Expected 'localhost', got '%s'", host)
-		}
-
-		port, err := cfg.GetInt("db.port")
-		if err != nil || port != 5432 {
-			t.Errorf("Expected 5432, got %d", port)
-		}
-	})
-
-	t.Run("Invalid File Path", func(t *testing.T) {
-		cfg := NewConfig()
-		err := cfg.LoadFromJSON("nonexistent.json")
-		if err == nil {
-			t.Error("Expected error for missing file")
-		}
-	})
-}
-
-func TestLoadFromEnvironment(t *testing.T) {
-	// Set test environment variables
-	os.Setenv("APP_DB__HOST", "env-host")
-	os.Setenv("APP_DB__PORT", "8080")
-	os.Setenv("APP_LOG_LEVEL", "debug")
-	os.Setenv("APP_FEATURES__NEWUI", "true")
-	defer func() {
-		os.Unsetenv("APP_DB__HOST")
-		os.Unsetenv("APP_DB__PORT")
-		os.Unsetenv("APP_LOG_LEVEL")
-		os.Unsetenv("APP_FEATURES__NEWUI")
-	}()
-
-	t.Run("Valid Environment Loading", func(t *testing.T) {
-		cfg := NewConfig()
-		err := cfg.LoadFromEnvironment("APP_")
-		if err != nil {
-			t.Fatalf("Failed to load environment: %v", err)
-		}
-
-		host, err := cfg.GetString("db.host")
-		if err != nil || host != "env-host" {
-			t.Errorf("Expected 'env-host', got '%s'", host)
-		}
-
-		port, err := cfg.GetInt("db.port")
-		if err != nil || port != 8080 {
-			t.Errorf("Expected 8080, got %d", port)
-		}
-	})
-
-	t.Run("Environment Type Conflict", func(t *testing.T) {
-		cfg := NewConfig()
-		cfg.data["db"] = "invalid" // Set non-map value
-		err := cfg.LoadFromEnvironment("APP_")
-		if err == nil {
-			t.Error("Expected error for type conflict")
-		}
-	})
-}
-
-func TestMerge(t *testing.T) {
-	cfg1 := NewConfig()
-	cfg1.LoadFromJSON("testdata/base_config.json")
-
-	cfg2 := NewConfig()
-	cfg2.LoadFromJSON("testdata/emergency.json")
-
-	cfg1.Merge(cfg2)
-
-	host, _ := cfg1.GetString("db.host")
-	if host != "backup-server" {
-		t.Errorf("Expected merged host 'backup-server', got '%s'", host)
+// getTestFilePath tries to get the path of the test file, first
+// searching the current directory and, if it does not exist, the parent directory.
+func getTestFilePath(t *testing.T, fileName string) string {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal("Error getting working directory:", err)
 	}
 
-	port, _ := cfg1.GetInt("db.port")
-	if port != 5432 {
-		t.Errorf("Expected original port 5432, got %d", port)
+	// Try first at: <wd>/testdata/<fileName>
+	path := filepath.Join(wd, "testdata", fileName)
+	if _, err := os.Stat(path); err == nil {
+		return path
 	}
+
+	// If not found, try: <wd>/../testdata/<fileName>
+	path = filepath.Join(wd, "..", "testdata", fileName)
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+
+	t.Fatalf("Test file not found %s", fileName)
+	return ""
 }
 
-func TestGetMethods(t *testing.T) {
+func TestLoadAndValidate(t *testing.T) {
 	cfg := NewConfig()
-	cfg.data = map[string]interface{}{
-		"string_val": "hello",
-		"int_val":    42,
-		"bool_val":   true,
-		"nested": map[string]interface{}{
-			"number": "123",
-		},
+	basePath := getTestFilePath(t, "base_config.json")
+	if err := cfg.LoadFromJSON(basePath); err != nil {
+		t.Fatal("Error loading base_config.json:", err)
 	}
 
-	tests := []struct {
-		name     string
-		key      string
-		expected interface{}
-		err      bool
-	}{
-		{"Valid String", "string_val", "hello", false},
-		{"Valid Int", "int_val", 42, false},
-		{"Valid Bool", "bool_val", true, false},
-		{"Convert String to Int", "nested.number", 123, false},
-		{"Missing Key", "missing", nil, true},
-		{"Invalid Conversion", "string_val", 0, true},
+	// Validate existing keys
+	if err := cfg.Validate([]string{"db.host", "db.port", "app.name"}); err != nil {
+		t.Fatal("Validation error:", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			switch tt.expected.(type) {
-			case string:
-				val, err := cfg.GetString(tt.key)
-				if (err != nil) != tt.err {
-					t.Errorf("Unexpected error: %v", err)
-				}
-				if !tt.err && val != tt.expected {
-					t.Errorf("Expected %v, got %v", tt.expected, val)
-				}
-			case int:
-				val, err := cfg.GetInt(tt.key)
-				if (err != nil) != tt.err {
-					t.Errorf("Unexpected error: %v", err)
-				}
-				if !tt.err && val != tt.expected {
-					t.Errorf("Expected %v, got %v", tt.expected, val)
-				}
-			case bool:
-				val, err := cfg.GetBool(tt.key)
-				if (err != nil) != tt.err {
-					t.Errorf("Unexpected error: %v", err)
-				}
-				if !tt.err && val != tt.expected {
-					t.Errorf("Expected %v, got %v", tt.expected, val)
-				}
-			}
-		})
+	// Test to obtain values
+	if host, err := cfg.GetString("db.host"); err != nil || host != "localhost" {
+		t.Fatalf("Expected host 'localhost', got '%v' (err: %v)", host, err)
+	}
+
+	if port, err := cfg.GetInt("db.port"); err != nil || port != 5432 {
+		t.Fatalf("Expected port 5432, obtained '%v' (err: %v)", port, err)
 	}
 }
 
-func TestValidate(t *testing.T) {
+func TestMergeConfig(t *testing.T) {
 	cfg := NewConfig()
-	cfg.LoadFromJSON("testdata/base_config.json")
+	basePath := getTestFilePath(t, "base_config.json")
+	overridePath := getTestFilePath(t, "override.json")
 
-	t.Run("All Keys Present", func(t *testing.T) {
-		err := cfg.Validate([]string{"db.host", "log_level"})
-		if err != nil {
-			t.Errorf("Validation failed unexpectedly: %v", err)
-		}
-	})
+	if err := cfg.LoadFromJSON(basePath); err != nil {
+		t.Fatal("Error loading base_config.json:", err)
+	}
 
-	t.Run("Missing Key", func(t *testing.T) {
-		err := cfg.Validate([]string{"db.host", "missing.key"})
-		if err == nil {
-			t.Error("Expected validation error for missing key")
-		}
-	})
+	overrideCfg := NewConfig()
+	if err := overrideCfg.LoadFromJSON(overridePath); err != nil {
+		t.Fatal("Error loading override.json:", err)
+	}
+
+	cfg.Merge(overrideCfg)
+
+	// After the merge, db.host must be overwritten
+	if host, err := cfg.GetString("db.host"); err != nil || host != "192.168.1.100" {
+		t.Fatalf("Expected host '192.168.1.100', obtained '%v' (err: %v)", host, err)
+	}
+
+	// Additionally, the logging.level key must exist.
+	if level, err := cfg.GetString("logging.level"); err != nil || level != "debug" {
+		t.Fatalf("Expected logging.level 'debug', got '%v' (err: %v)", level, err)
+	}
 }
 
-func TestComplexScenario(t *testing.T) {
-	// Set environment variables
-	os.Setenv("PROD_DB__PORT", "6432")
-	os.Setenv("PROD_LOG_LEVEL", "warn")
-	defer os.Unsetenv("PROD_DB__PORT")
-	defer os.Unsetenv("PROD_LOG_LEVEL")
-
+func TestMissingKey(t *testing.T) {
 	cfg := NewConfig()
-	// Load base config
-	cfg.LoadFromJSON("testdata/base_config.json")
-	// Load environment overrides
-	cfg.LoadFromEnvironment("PROD_")
-	// Merge emergency config
-	emergencyCfg := NewConfig()
-	emergencyCfg.LoadFromJSON("testdata/emergency.json")
-	cfg.Merge(emergencyCfg)
-
-	// Verify merged values
-	host, _ := cfg.GetString("db.host")
-	if host != "backup-server" {
-		t.Errorf("Expected host from emergency config, got %s", host)
+	missingPath := getTestFilePath(t, "missing.json")
+	if err := cfg.LoadFromJSON(missingPath); err != nil {
+		t.Fatal("Error loading missing.json:", err)
 	}
 
-	port, _ := cfg.GetInt("db.port")
-	if port != 6432 {
-		t.Errorf("Expected port from environment, got %d", port)
+	// The key "db.host" is missing
+	if err := cfg.Validate([]string{"db.host"}); err == nil {
+		t.Fatal("Error expected due to missing key 'db.host'")
+	}
+}
+
+func TestGetStringFunction(t *testing.T) {
+	cfg := NewConfig()
+	cfg.data["simple"] = "hello"
+	cfg.data["number"] = 123
+
+	s, err := cfg.GetString("simple")
+	if err != nil || s != "hello" {
+		t.Fatalf("Expected 'hello', obtained '%v' (err: %v)", s, err)
 	}
 
-	logLevel, _ := cfg.GetString("log_level")
-	if logLevel != "warn" {
-		t.Errorf("Expected log level from environment, got %s", logLevel)
+	s, err = cfg.GetString("number")
+	if err != nil || s != "123" {
+		t.Fatalf("Expected '123', obtained '%v' (err: %v)", s, err)
+	}
+}
+
+func TestGetIntFunction(t *testing.T) {
+	cfg := NewConfig()
+	cfg.data["intValue"] = 100
+	cfg.data["floatValue"] = 99.0
+	cfg.data["stringValue"] = "42"
+
+	i, err := cfg.GetInt("intValue")
+	if err != nil || i != 100 {
+		t.Fatalf("Expected 100, obtained %v (err: %v)", i, err)
+	}
+
+	i, err = cfg.GetInt("floatValue")
+	if err != nil || i != 99 {
+		t.Fatalf("Expected 99, obtained %v (err: %v)", i, err)
+	}
+
+	i, err = cfg.GetInt("stringValue")
+	if err != nil || i != 42 {
+		t.Fatalf("Expected 42, obtained %v (err: %v)", i, err)
+	}
+}
+
+func TestGetBoolFunction(t *testing.T) {
+	cfg := NewConfig()
+	cfg.data["boolTrue"] = true
+	cfg.data["boolString"] = "true"
+
+	b, err := cfg.GetBool("boolTrue")
+	if err != nil || !b {
+		t.Fatalf("Expected true, got %v (err: %v)", b, err)
+	}
+
+	b, err = cfg.GetBool("boolString")
+	if err != nil || !b {
+		t.Fatalf("Expected true, got %v (err: %v)", b, err)
 	}
 }

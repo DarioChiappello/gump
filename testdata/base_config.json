@@ -1,8 +1,11 @@
 {
-    "db": {
-      "host": "localhost",
-      "port": 5432,
-      "ssl": false
-    },
-    "log_level": "info"
+  "db": {
+    "host": "localhost",
+    "port": 5432,
+    "ssl": false
+  },
+  "app": {
+    "name": "GUMP App",
+    "version": "1.0.0"
   }
+}
