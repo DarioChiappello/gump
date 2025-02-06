@@ -1,0 +1,6 @@
+{
+    "db": {
+      "host": "backup-server",
+      "timeout": 30
+    }
+  }
