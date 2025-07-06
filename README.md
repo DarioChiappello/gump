@@ -1,97 +1,226 @@
-# GUMP
-## Go Unified Managment Package
+# GUMP - Go Unified Management Package
+## Overview
+GUMP is an advanced configuration management package for Go that simplifies handling complex configurations. It combines multiple sources (JSON files, environment variables), offers real-time change monitoring, high-performance caching, and a fluent builder system.
 
-Gump is a lightweight, flexible configuration management package for Go. It allows you to load, merge, and validate JSON configuration files, as well as easily retrieve configuration values as strings, integers, or booleans. This package is designed to simplify the management of configuration data for your applications.
+## Key Features
+### Core Capabilities
+Multi-source Loading: JSON, environment variables, and more
 
-### Features
-- Load JSON Configurations: Easily load configuration files from disk.
+Smart Merging: Hierarchical configuration merging
 
-- Merge Configurations: Combine multiple configuration files (e.g., base configuration, emergency overrides, and custom overrides) into a single configuration object.
+Robust Validation: Verify required keys and data types
 
-- Validation: Verify that required configuration keys are present.
+Typed Access: Strings, integers, booleans with default values
 
-- Flexible Data Retrieval: Retrieve configuration values as strings, integers, or booleans.
+Dot Notation: Simple access to nested values (app.database.host)
 
-- Dot Notation Access: Use dot notation (e.g., db.host) to access nested configuration values.
+### New Features
+🔍 ConfigWatcher:
 
-## Getting Started
+Continuous file monitoring with fsnotify
 
-### Prerequisites
+Periodic verification with configurable intervals
 
-- Go 1.18 or higher
+Callbacks for real-time change reactions
 
-```bash
-git clone https://github.com/DarioChiappello/gump.git
-cd gump
+Multi-file support
+
+Cache integration (auto-invalidation)
+
+🔄 EnvLoader:
+
+Load environment variables with configurable prefix
+
+Automatic conversion of ENV_VARIABLES to env.variables
+
+Direct integration with Config structure
+
+🧱 ConfigBuilder:
+
+Builder pattern for fluent configuration
+
+Combine multiple sources (JSON, ENV, etc.)
+
+Cumulative error handling
+
+MustBuild version for safe initialization
+
+⚡ ConfigWithCache:
+
+Thread-safe cache with sync.RWMutex
+
+Selective or full cache invalidation
+
+Strongly typed cached values
+
+Compatible with all Get* methods
+
+Security & Robustness Improvements
+Nil validation in merge operations
+
+Comprehensive type handling and conversions
+
+Improved nested map management
+
+Exhaustive type checking
+
+Error recovery mechanisms
+
+Optimizations
+Consistent API receivers
+
+Elimination of redundant conversions
+
+Optimized recursive map handling
+
+Concurrent access safety
+
+### Installation
+
+```
+bash
+go get github.com/DarioChiappello/gump
 ```
 
-### Running the Example
+### Basic Usage
 
-```bash
-cd example
-go run main.go
 ```
-
-### Running Tests
-```bash
-go test ./config
-```
-
-### Usage
-Below is a short snippet showing how to use Gump in your Go application:
-
-``` golang
+go
 package main
 
 import (
-    "fmt"
-    "os"
-    "path/filepath"
-
-    "github.com/DarioChiappello/gump/config"
+	"fmt"
+	"time"
+	
+	"github.com/DarioChiappello/gump/config"
 )
 
 func main() {
-    wd, err := os.Getwd()
-    if err != nil {
-        panic(err)
-    }
+	// Fluent multi-source configuration
+	cfg, err := config.NewConfigBuilder().
+		AddJSONFile("base_config.json").
+		AddJSONFile("overrides.json").
+		AddEnv("APP_").
+		Build()
+	
+	if err != nil {
+		panic(err)
+	}
 
-    // Adjust the path to your configuration files as needed.
-    baseConfigPath := filepath.Join(wd, "..", "testdata", "base_config.json")
-    emergencyConfigPath := filepath.Join(wd, "..", "testdata", "emergency.json")
+	// Cached configuration
+	cachedCfg := config.NewConfigWithCache(cfg)
 
-    cfg := config.NewConfig()
-    if err := cfg.LoadFromJSON(baseConfigPath); err != nil {
-        panic(err)
-    }
+	// Change watcher
+	watcher, _ := config.NewConfigWatcher(cachedCfg, 5*time.Second, "config.json")
+	watcher.OnReload(func(c *config.Config) {
+		fmt.Println("Configuration updated!")
+		cachedCfg.InvalidateCache() // Clear cache on change
+	})
+	go watcher.Start()
+	defer watcher.Stop()
 
-    emergencyCfg := config.NewConfig()
-    if err := emergencyCfg.LoadFromJSON(emergencyConfigPath); err != nil {
-        panic(err)
-    }
-    cfg.Merge(emergencyCfg)
+	// Value access
+	dbHost := cachedCfg.GetString("database.host", "localhost")
+	dbPort := cachedCfg.GetInt("database.port", 5432)
+	
+	fmt.Printf("Connecting to %s:%d\n", dbHost, dbPort)
+}
+```
 
-    // Validate required keys.
-    if err := cfg.Validate([]string{"db.host", "db.port"}); err != nil {
-        panic(err)
-    }
+### Advanced Examples
+#### ConfigBuilder
 
-    // Retrieve values.
-    host, _ := cfg.GetString("db.host")
-    port, _ := cfg.GetInt("db.port")
-    ssl, _ := cfg.GetBool("db.ssl")
+```
+go
+builder := config.NewConfigBuilder().
+	AddJSONFile("base.json").
+	AddJSONFile("env/production.json").
+	AddEnv("APP_")
 
-    fmt.Println("Database host:", host)
-    fmt.Println("Database port:", port)
-    fmt.Println("Database SSL:", ssl)
+cfg, err := builder.Build()
+if err != nil {
+	// Handle cumulative errors
 }
 
+// Safe version for initializations
+cfg = builder.MustBuild()
+EnvLoader
+go
+cfg := config.NewConfig()
+loader := config.NewEnvLoader("APP_", cfg)
+
+// Load environment variables
+err := loader.Load()
+if err != nil {
+	panic(err)
+}
+
+// APP_DB_HOST → db.host
+host := cfg.GetString("db.host", "localhost")
+ConfigWatcher
+go
+cfg := config.NewConfig()
+cfg.LoadFromJSON("config.json")
+
+// Create watcher with 5-second checks
+watcher, _ := config.NewConfigWatcher(cfg, 5*time.Second, "config.json")
+
+// Register change callback
+watcher.OnReload(func(c *config.Config) {
+	fmt.Println("Configuration updated in real-time!")
+})
+
+// Start monitoring
+go watcher.Start()
+defer watcher.Stop()
+
+// Keep application running
+select {}
+ConfigWithCache
+go
+cfg := config.NewConfig()
+cfg.LoadFromJSON("config.json")
+
+// Create cached version
+cachedCfg := config.NewConfigWithCache(cfg)
+
+// First access - loads and caches
+val := cachedCfg.GetString("complex.key", "default")
+
+// Subsequent accesses - uses cache
+val = cachedCfg.GetString("complex.key", "default")
+
+// Invalidate specific key
+cachedCfg.InvalidateKey("complex.key")
+
+// Invalidate entire cache
+cachedCfg.InvalidateAllCache()
+```
+
+### Key Benefits
+Maintainability: Clear component responsibilities
+
+Extensibility: Easy to add new source types
+
+Clarity: Descriptive errors with context
+
+Consistency: Uniform operation behavior
+
+Security: Robust handling of edge cases
+
+Performance: Cache access for complex configurations
+
+Reactivity: Real-time configuration updates
+
+### Running Tests
+#### Run all tests
+```
+go test -v ./...
 ```
 
 
-### Contributing
-Contributions are welcome! Feel free to open issues or submit pull requests to improve the package.
+# Contributions
+Contributions are welcome! Please open an issue to discuss significant changes before submitting PRs.
 
-### License
-This project is licensed under the MIT License.
+License
+MIT License
