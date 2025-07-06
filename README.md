@@ -55,7 +55,8 @@ Strongly typed cached values
 
 Compatible with all Get* methods
 
-Security & Robustness Improvements
+### Security & Robustness Improvements
+
 Nil validation in merge operations
 
 Comprehensive type handling and conversions
@@ -66,7 +67,7 @@ Exhaustive type checking
 
 Error recovery mechanisms
 
-Optimizations
+### Optimizations
 Consistent API receivers
 
 Elimination of redundant conversions
@@ -75,7 +76,7 @@ Optimized recursive map handling
 
 Concurrent access safety
 
-### Installation
+## Installation
 
 ```
 bash
@@ -144,7 +145,11 @@ if err != nil {
 
 // Safe version for initializations
 cfg = builder.MustBuild()
-EnvLoader
+```
+
+#### EnvLoader
+
+```
 go
 cfg := config.NewConfig()
 loader := config.NewEnvLoader("APP_", cfg)
@@ -157,7 +162,10 @@ if err != nil {
 
 // APP_DB_HOST → db.host
 host := cfg.GetString("db.host", "localhost")
-ConfigWatcher
+```
+
+#### ConfigWatcher
+```
 go
 cfg := config.NewConfig()
 cfg.LoadFromJSON("config.json")
@@ -176,7 +184,10 @@ defer watcher.Stop()
 
 // Keep application running
 select {}
-ConfigWithCache
+```
+
+#### ConfigWithCache
+```
 go
 cfg := config.NewConfig()
 cfg.LoadFromJSON("config.json")
