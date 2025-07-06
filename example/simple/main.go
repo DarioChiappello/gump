@@ -16,9 +16,9 @@ func main() {
 	}
 
 	// It is assumed that when running from the 'example' folder the JSON files are located in '../testdata'
-	baseConfigPath := filepath.Join(wd, "..", "testdata", "base_config.json")
-	emergencyConfigPath := filepath.Join(wd, "..", "testdata", "emergency.json")
-	overrideConfigPath := filepath.Join(wd, "..", "testdata", "override.json")
+	baseConfigPath := filepath.Join(wd, "../..", "testdata", "base_config.json")
+	emergencyConfigPath := filepath.Join(wd, "../..", "testdata", "emergency.json")
+	overrideConfigPath := filepath.Join(wd, "../..", "testdata", "override.json")
 
 	// --- Example 1: Load base configuration ---
 	fmt.Println("Example 1: Load base configuration")

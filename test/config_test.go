@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/DarioChiappello/gump/config"
 )
 
 // getTestFilePath tries to get the path of the test file, first
@@ -31,7 +33,7 @@ func getTestFilePath(t *testing.T, fileName string) string {
 }
 
 func TestLoadAndValidate(t *testing.T) {
-	cfg := NewConfig()
+	cfg := config.NewConfig()
 	basePath := getTestFilePath(t, "base_config.json")
 	if err := cfg.LoadFromJSON(basePath); err != nil {
 		t.Fatal("Error loading base_config.json:", err)
@@ -53,7 +55,7 @@ func TestLoadAndValidate(t *testing.T) {
 }
 
 func TestMergeConfig(t *testing.T) {
-	cfg := NewConfig()
+	cfg := config.NewConfig()
 	basePath := getTestFilePath(t, "base_config.json")
 	overridePath := getTestFilePath(t, "override.json")
 
@@ -61,7 +63,7 @@ func TestMergeConfig(t *testing.T) {
 		t.Fatal("Error loading base_config.json:", err)
 	}
 
-	overrideCfg := NewConfig()
+	overrideCfg := config.NewConfig()
 	if err := overrideCfg.LoadFromJSON(overridePath); err != nil {
 		t.Fatal("Error loading override.json:", err)
 	}
@@ -80,7 +82,7 @@ func TestMergeConfig(t *testing.T) {
 }
 
 func TestMissingKey(t *testing.T) {
-	cfg := NewConfig()
+	cfg := config.NewConfig()
 	missingPath := getTestFilePath(t, "missing.json")
 	if err := cfg.LoadFromJSON(missingPath); err != nil {
 		t.Fatal("Error loading missing.json:", err)
@@ -93,9 +95,9 @@ func TestMissingKey(t *testing.T) {
 }
 
 func TestGetStringFunction(t *testing.T) {
-	cfg := NewConfig()
-	cfg.data["simple"] = "hello"
-	cfg.data["number"] = 123
+	cfg := config.NewConfig()
+	cfg.Data["simple"] = "hello"
+	cfg.Data["number"] = 123
 
 	s, err := cfg.GetString("simple")
 	if err != nil || s != "hello" {
@@ -109,10 +111,10 @@ func TestGetStringFunction(t *testing.T) {
 }
 
 func TestGetIntFunction(t *testing.T) {
-	cfg := NewConfig()
-	cfg.data["intValue"] = 100
-	cfg.data["floatValue"] = 99.0
-	cfg.data["stringValue"] = "42"
+	cfg := config.NewConfig()
+	cfg.Data["intValue"] = 100
+	cfg.Data["floatValue"] = 99.0
+	cfg.Data["stringValue"] = "42"
 
 	i, err := cfg.GetInt("intValue")
 	if err != nil || i != 100 {
@@ -131,9 +133,9 @@ func TestGetIntFunction(t *testing.T) {
 }
 
 func TestGetBoolFunction(t *testing.T) {
-	cfg := NewConfig()
-	cfg.data["boolTrue"] = true
-	cfg.data["boolString"] = "true"
+	cfg := config.NewConfig()
+	cfg.Data["boolTrue"] = true
+	cfg.Data["boolString"] = "true"
 
 	b, err := cfg.GetBool("boolTrue")
 	if err != nil || !b {
