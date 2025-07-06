@@ -1,138 +1,131 @@
-# GUMP - Go Unified Management Package
-## Overview
-GUMP is an advanced configuration management package for Go that simplifies handling complex configurations. It combines multiple sources (JSON files, environment variables), offers real-time change monitoring, high-performance caching, and a fluent builder system.
+# 🧠 GUMP - Go Unified Management Package
 
-## Key Features
-### Core Capabilities
-Multi-source Loading: JSON, environment variables, and more
+> **Advanced, reactive, and extensible configuration management for Go.**
 
-Smart Merging: Hierarchical configuration merging
+---
 
-Robust Validation: Verify required keys and data types
+## 📘 Overview
 
-Typed Access: Strings, integers, booleans with default values
+**GUMP** simplifies complex configuration management in Go by unifying multiple sources like JSON files and environment variables. It supports real-time change detection, efficient caching, and a fluent builder API for declarative configuration setups.
 
-Dot Notation: Simple access to nested values (app.database.host)
+---
 
-### New Features
-🔍 ConfigWatcher:
+## ✨ Key Features
 
-Continuous file monitoring with fsnotify
+### 🔧 Core Capabilities
 
-Periodic verification with configurable intervals
+- **Multi-source Loading**: JSON files, environment variables, and more  
+- **Smart Merging**: Hierarchical config merging with override support  
+- **Robust Validation**: Ensure required keys and types are correct  
+- **Typed Access**: Strong typing with sensible defaults  
+- **Dot Notation**: Easy access to nested fields (`app.database.host`)
 
-Callbacks for real-time change reactions
+---
 
-Multi-file support
+### 🚀 New Modules
 
-Cache integration (auto-invalidation)
+#### 🔍 ConfigWatcher  
+> Real-time configuration updates with callbacks  
+- Monitors files via `fsnotify`  
+- Periodic verification with customizable intervals  
+- Callback support for change events  
+- Multi-file support  
+- Integrated cache invalidation
 
-🔄 EnvLoader:
+#### 🔄 EnvLoader  
+> Simplified environment variable integration  
+- Prefix-based ENV loading (e.g., `APP_`)  
+- Auto-converts `ENV_VARIABLE` → `env.variable`  
+- Seamlessly merges into your config structure
 
-Load environment variables with configurable prefix
+#### 🧱 ConfigBuilder  
+> Fluent configuration builder with chaining  
+- Compose from multiple sources  
+- Cumulative error aggregation  
+- `MustBuild()` for safe one-liners
 
-Automatic conversion of ENV_VARIABLES to env.variables
+#### ⚡ ConfigWithCache  
+> Thread-safe cache layer  
+- Fast access with `sync.RWMutex`  
+- Selective or full invalidation  
+- Compatible with all `Get*` methods  
+- Strongly typed and performant
 
-Direct integration with Config structure
+---
 
-🧱 ConfigBuilder:
+### 🔐 Security & Robustness
 
-Builder pattern for fluent configuration
+- Nil-safe merge operations  
+- Extensive type conversions and checks  
+- Nested map and slice handling  
+- Error recovery and panic protection
 
-Combine multiple sources (JSON, ENV, etc.)
+---
 
-Cumulative error handling
+### ⚙️ Optimizations
 
-MustBuild version for safe initialization
+- Uniform API receivers  
+- Zero-copy conversions  
+- Recursive map efficiency  
+- Thread-safe concurrent access
 
-⚡ ConfigWithCache:
+---
 
-Thread-safe cache with sync.RWMutex
+## 📦 Installation
 
-Selective or full cache invalidation
-
-Strongly typed cached values
-
-Compatible with all Get* methods
-
-### Security & Robustness Improvements
-
-Nil validation in merge operations
-
-Comprehensive type handling and conversions
-
-Improved nested map management
-
-Exhaustive type checking
-
-Error recovery mechanisms
-
-### Optimizations
-Consistent API receivers
-
-Elimination of redundant conversions
-
-Optimized recursive map handling
-
-Concurrent access safety
-
-## Installation
-
-```
-bash
+```bash
 go get github.com/DarioChiappello/gump
 ```
 
-### Basic Usage
+---
 
-```
-go
+## 🚀 Quick Start
+
+```go
 package main
 
 import (
 	"fmt"
 	"time"
-	
+
 	"github.com/DarioChiappello/gump/config"
 )
 
 func main() {
-	// Fluent multi-source configuration
 	cfg, err := config.NewConfigBuilder().
 		AddJSONFile("base_config.json").
 		AddJSONFile("overrides.json").
 		AddEnv("APP_").
 		Build()
-	
+
 	if err != nil {
 		panic(err)
 	}
 
-	// Cached configuration
 	cachedCfg := config.NewConfigWithCache(cfg)
 
-	// Change watcher
 	watcher, _ := config.NewConfigWatcher(cachedCfg, 5*time.Second, "config.json")
 	watcher.OnReload(func(c *config.Config) {
 		fmt.Println("Configuration updated!")
-		cachedCfg.InvalidateCache() // Clear cache on change
+		cachedCfg.InvalidateCache()
 	})
 	go watcher.Start()
 	defer watcher.Stop()
 
-	// Value access
 	dbHost := cachedCfg.GetString("database.host", "localhost")
 	dbPort := cachedCfg.GetInt("database.port", 5432)
-	
+
 	fmt.Printf("Connecting to %s:%d\n", dbHost, dbPort)
 }
 ```
 
-### Advanced Examples
-#### ConfigBuilder
+---
 
-```
-go
+## 🧪 Advanced Usage
+
+### 🔨 ConfigBuilder
+
+```go
 builder := config.NewConfigBuilder().
 	AddJSONFile("base.json").
 	AddJSONFile("env/production.json").
@@ -143,95 +136,90 @@ if err != nil {
 	// Handle cumulative errors
 }
 
-// Safe version for initializations
 cfg = builder.MustBuild()
 ```
 
-#### EnvLoader
+---
 
-```
-go
+### 🌱 EnvLoader
+
+```go
 cfg := config.NewConfig()
 loader := config.NewEnvLoader("APP_", cfg)
 
-// Load environment variables
 err := loader.Load()
 if err != nil {
 	panic(err)
 }
 
-// APP_DB_HOST → db.host
 host := cfg.GetString("db.host", "localhost")
 ```
 
-#### ConfigWatcher
-```
-go
+---
+
+### 🔁 ConfigWatcher
+
+```go
 cfg := config.NewConfig()
 cfg.LoadFromJSON("config.json")
 
-// Create watcher with 5-second checks
 watcher, _ := config.NewConfigWatcher(cfg, 5*time.Second, "config.json")
 
-// Register change callback
 watcher.OnReload(func(c *config.Config) {
 	fmt.Println("Configuration updated in real-time!")
 })
 
-// Start monitoring
 go watcher.Start()
 defer watcher.Stop()
 
-// Keep application running
 select {}
 ```
 
-#### ConfigWithCache
-```
-go
+---
+
+### 🧠 ConfigWithCache
+
+```go
 cfg := config.NewConfig()
 cfg.LoadFromJSON("config.json")
 
-// Create cached version
 cachedCfg := config.NewConfigWithCache(cfg)
 
-// First access - loads and caches
 val := cachedCfg.GetString("complex.key", "default")
 
-// Subsequent accesses - uses cache
-val = cachedCfg.GetString("complex.key", "default")
-
-// Invalidate specific key
 cachedCfg.InvalidateKey("complex.key")
-
-// Invalidate entire cache
 cachedCfg.InvalidateAllCache()
 ```
 
-### Key Benefits
-Maintainability: Clear component responsibilities
+---
 
-Extensibility: Easy to add new source types
+## ✅ Benefits
 
-Clarity: Descriptive errors with context
+- 🧩 **Modular**: Clean separation of logic  
+- 🔌 **Extensible**: Easy to add new sources or hooks  
+- 🧼 **Readable**: Context-aware, descriptive errors  
+- 🛡️ **Reliable**: Handles edge cases and bad inputs gracefully  
+- ⚡ **Fast**: In-memory cache for high-performance access  
+- 🔄 **Reactive**: Instant config reload on file changes  
 
-Consistency: Uniform operation behavior
+---
 
-Security: Robust handling of edge cases
+## 🧪 Running Tests
 
-Performance: Cache access for complex configurations
-
-Reactivity: Real-time configuration updates
-
-### Running Tests
-#### Run all tests
-```
+```bash
 go test -v ./...
 ```
 
+---
 
-# Contributions
-Contributions are welcome! Please open an issue to discuss significant changes before submitting PRs.
+## 🤝 Contributions
 
-License
-MIT License
+We welcome contributions!  
+Please [open an issue](https://github.com/DarioChiappello/gump/issues) to discuss large changes before submitting PRs.
+
+---
+
+## 📄 License
+
+**MIT License**  
+See the [LICENSE](./LICENSE) file for details.

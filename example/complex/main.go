@@ -22,7 +22,7 @@ func main() {
 	overrideConfigPath := filepath.Join(wd, "../..", "testdata", "override.json")
 
 	// --- Example 1: ConfigBuilder advanced use ---
-	fmt.Println("\n=== Ejemplo 1: ConfigBuilder avanzado ===")
+	fmt.Println("\n=== Example 1: ConfigBuilder advanced ===")
 	builder := config.NewConfigBuilder().
 		WithJSON(baseConfigPath).
 		WithJSON(emergencyConfigPath).
@@ -42,7 +42,7 @@ func main() {
 	dbPort, _ := builtCfg.GetInt("db.port")
 	dbSSL, _ := builtCfg.GetBool("db.ssl")
 	logLevel, _ := builtCfg.GetString("logging.level")
-	fmt.Println("Configuración construida:")
+	fmt.Println("Constructed configuration:")
 	fmt.Println("db.host =", dbHost)
 	fmt.Println("db.port =", dbPort) // Overwrite by env var
 	fmt.Println("db.ssl  =", dbSSL)
@@ -62,7 +62,7 @@ func main() {
 	start = time.Now()
 	cachedHost, _ = cachedCfg.GetString("db.host")
 	cachedTime = time.Since(start)
-	fmt.Printf("Acceso desde caché: %s (tomó %v)\n", cachedHost, cachedTime)
+	fmt.Printf("Access from cache: %s (took %v)\n", cachedHost, cachedTime)
 
 	// Invalidate cache and access again
 	cachedCfg.InvalidateCache()
@@ -113,12 +113,12 @@ func main() {
 		modifyFile(overrideConfigPath, `{"db": {"host": "watched_host_override"}, "logging": {"level": "trace"}}`)
 	}()
 
-	// Mantener el programa en ejecución
+	// Keep the program running
 	time.Sleep(10 * time.Second)
 	fmt.Println("\nStopping observer...")
 
 	// --- Example 4: Detailed Validation ---
-	fmt.Println("\n=== Ejemplo 4: Validación avanzada ===")
+	fmt.Println("\n=== Example 4: Advanced Validation ===")
 	err = builtCfg.Validate([]string{
 		"db.host",
 		"db.port",
